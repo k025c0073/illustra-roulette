@@ -240,9 +240,16 @@ const Index = () => {
             {running ? "抽選中..." : "START"}
           </button>
 
-          <p className="text-muted-foreground text-sm">
-            {items.length}件の中から抽選
-          </p>
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-muted-foreground text-sm">
+              残り {items.filter((i) => !drawnIds.has(i.id)).length} / {items.length} 件
+            </p>
+            {drawnIds.size > 0 && (
+              <Button variant="ghost" size="sm" onClick={resetDrawn} className="text-xs">
+                抽選状態をリセット
+              </Button>
+            )}
+          </div>
         </section>
 
         {/* Sidebar: items */}
