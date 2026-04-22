@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Plus, Trash2, History, Image as ImageIcon, Sparkles, X } from "lucide-react";
-import { addHistory, loadItems, saveItems, type RouletteItem } from "@/lib/roulette-storage";
+import { addHistory, clearHistory, loadHistory, loadItems, saveItems, type RouletteItem } from "@/lib/roulette-storage";
 import { toast } from "sonner";
 
 const Index = () => {
