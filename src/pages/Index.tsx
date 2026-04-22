@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,25 +11,24 @@ import { toast } from "sonner";
 const Index = () => {
   const [items, setItems] = useState<RouletteItem[]>(() => loadItems());
   const [drawnIds, setDrawnIds] = useState<Set<string>>(() => new Set(loadHistory().map((h) => h.itemId)));
-  const [hydrated, setHydrated] = useState(false);
-  const [newLabel, setNewLabel] = useState("");
-  const [newImage, setNewImage] = useState<string | undefined>();
   const [running, setRunning] = useState(false);
   const [flashItem, setFlashItem] = useState<RouletteItem | null>(null);
   const [result, setResult] = useState<RouletteItem | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const tickIntervalRef = useRef<number | null>(null);
   const stopTimeoutRef = useRef<number | null>(null);
 
+  // 他ページで項目が更新された場合に同期
   useEffect(() => {
-    setHydrated(true);
+    const sync = () => setItems(loadItems());
+    window.addEventListener("focus", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("focus", sync);
+      window.removeEventListener("storage", sync);
+    };
   }, []);
-
-  useEffect(() => {
-    if (hydrated) saveItems(items);
-  }, [items, hydrated]);
 
   useEffect(() => {
     return () => {
@@ -78,69 +78,6 @@ const Index = () => {
       osc.start(start);
       osc.stop(start + 0.5);
     });
-  };
-
-  const handleAdd = () => {
-    if (!newLabel.trim() && !newImage) {
-      toast.error("数字またはイラストを入力してください");
-      return;
-    }
-    setItems((prev) => [...prev, { id: crypto.randomUUID(), label: newLabel.trim() || "?", image: newImage }]);
-    setNewLabel("");
-    setNewImage(undefined);
-    if (fileRef.current) fileRef.current.value = "";
-  };
-
-  const handleRemove = (id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
-  };
-
-  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (files.length === 0) return;
-
-    // 1枚だけならプレビューに（従来動作）
-    if (files.length === 1) {
-      const file = files[0];
-      if (file.size > 2 * 1024 * 1024) {
-        toast.error("画像は2MB以下にしてください");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => setNewImage(reader.result as string);
-      reader.readAsDataURL(file);
-      return;
-    }
-
-    // 複数選択なら一括で項目に追加
-    const oversized = files.filter((f) => f.size > 2 * 1024 * 1024);
-    const valid = files.filter((f) => f.size <= 2 * 1024 * 1024);
-    if (oversized.length) {
-      toast.error(`${oversized.length}件は2MB超のためスキップしました`);
-    }
-
-    Promise.all(
-      valid.map(
-        (file) =>
-          new Promise<RouletteItem>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              const name = file.name.replace(/\.[^.]+$/, "");
-              resolve({
-                id: crypto.randomUUID(),
-                label: name || "?",
-                image: reader.result as string,
-              });
-            };
-            reader.readAsDataURL(file);
-          }),
-      ),
-    ).then((newItems) => {
-      setItems((prev) => [...prev, ...newItems]);
-      toast.success(`${newItems.length}件のイラストを追加しました`);
-    });
-
-    if (fileRef.current) fileRef.current.value = "";
   };
 
   const resetDrawn = () => {
