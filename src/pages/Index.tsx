@@ -308,12 +308,13 @@ const Index = () => {
                     ref={fileRef}
                     type="file"
                     accept="image/*"
+                    multiple
                     className="hidden"
                     onChange={handleImage}
                   />
                   <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-dashed border-border bg-muted/30 hover:bg-muted/60 cursor-pointer text-sm transition-colors">
                     <ImageIcon className="h-4 w-4" />
-                    {newImage ? "画像選択済み" : "イラストを選ぶ"}
+                    {newImage ? "画像選択済み" : "イラストを選ぶ（複数可）"}
                   </div>
                 </label>
                 {newImage && (
