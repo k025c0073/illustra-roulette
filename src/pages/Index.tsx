@@ -8,8 +8,9 @@ import { addHistory, clearHistory, loadHistory, loadItems, saveItems, type Roule
 import { toast } from "sonner";
 
 const Index = () => {
-  const [items, setItems] = useState<RouletteItem[]>([]);
-  const [drawnIds, setDrawnIds] = useState<Set<string>>(new Set());
+  const [items, setItems] = useState<RouletteItem[]>(() => loadItems());
+  const [drawnIds, setDrawnIds] = useState<Set<string>>(() => new Set(loadHistory().map((h) => h.itemId)));
+  const [hydrated, setHydrated] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [newImage, setNewImage] = useState<string | undefined>();
   const [running, setRunning] = useState(false);
@@ -22,13 +23,12 @@ const Index = () => {
   const stopTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    setItems(loadItems());
-    setDrawnIds(new Set(loadHistory().map((h) => h.itemId)));
+    setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (items.length) saveItems(items);
-  }, [items]);
+    if (hydrated) saveItems(items);
+  }, [items, hydrated]);
 
   useEffect(() => {
     return () => {
