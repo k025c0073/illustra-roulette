@@ -18,12 +18,12 @@ const HISTORY_KEY = "roulette:history";
 export const loadItems = (): RouletteItem[] => {
   try {
     const raw = localStorage.getItem(ITEMS_KEY);
-    if (!raw) return defaultItems();
+    if (raw === null) return defaultItems(); // 初回のみデフォルト
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) return defaultItems();
+    if (!Array.isArray(parsed)) return [];
     return parsed;
   } catch {
-    return defaultItems();
+    return [];
   }
 };
 
