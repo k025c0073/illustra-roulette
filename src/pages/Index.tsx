@@ -1,34 +1,32 @@
 import { useEffect, useRef, useState } from "react";
+
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Plus, Trash2, History, Image as ImageIcon, Sparkles, X } from "lucide-react";
-import { addHistory, clearHistory, loadHistory, loadItems, saveItems, type RouletteItem } from "@/lib/roulette-storage";
+import { History, Sparkles, ListPlus } from "lucide-react";
+import { addHistory, clearHistory, loadHistory, loadItems, type RouletteItem } from "@/lib/roulette-storage";
 import { toast } from "sonner";
 
 const Index = () => {
   const [items, setItems] = useState<RouletteItem[]>(() => loadItems());
   const [drawnIds, setDrawnIds] = useState<Set<string>>(() => new Set(loadHistory().map((h) => h.itemId)));
-  const [hydrated, setHydrated] = useState(false);
-  const [newLabel, setNewLabel] = useState("");
-  const [newImage, setNewImage] = useState<string | undefined>();
   const [running, setRunning] = useState(false);
   const [flashItem, setFlashItem] = useState<RouletteItem | null>(null);
   const [result, setResult] = useState<RouletteItem | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const tickIntervalRef = useRef<number | null>(null);
   const stopTimeoutRef = useRef<number | null>(null);
 
+  // 他ページで項目が更新された場合に同期
   useEffect(() => {
-    setHydrated(true);
+    const sync = () => setItems(loadItems());
+    window.addEventListener("focus", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("focus", sync);
+      window.removeEventListener("storage", sync);
+    };
   }, []);
-
-  useEffect(() => {
-    if (hydrated) saveItems(items);
-  }, [items, hydrated]);
 
   useEffect(() => {
     return () => {
@@ -78,69 +76,6 @@ const Index = () => {
       osc.start(start);
       osc.stop(start + 0.5);
     });
-  };
-
-  const handleAdd = () => {
-    if (!newLabel.trim() && !newImage) {
-      toast.error("数字またはイラストを入力してください");
-      return;
-    }
-    setItems((prev) => [...prev, { id: crypto.randomUUID(), label: newLabel.trim() || "?", image: newImage }]);
-    setNewLabel("");
-    setNewImage(undefined);
-    if (fileRef.current) fileRef.current.value = "";
-  };
-
-  const handleRemove = (id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
-  };
-
-  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (files.length === 0) return;
-
-    // 1枚だけならプレビューに（従来動作）
-    if (files.length === 1) {
-      const file = files[0];
-      if (file.size > 2 * 1024 * 1024) {
-        toast.error("画像は2MB以下にしてください");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => setNewImage(reader.result as string);
-      reader.readAsDataURL(file);
-      return;
-    }
-
-    // 複数選択なら一括で項目に追加
-    const oversized = files.filter((f) => f.size > 2 * 1024 * 1024);
-    const valid = files.filter((f) => f.size <= 2 * 1024 * 1024);
-    if (oversized.length) {
-      toast.error(`${oversized.length}件は2MB超のためスキップしました`);
-    }
-
-    Promise.all(
-      valid.map(
-        (file) =>
-          new Promise<RouletteItem>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              const name = file.name.replace(/\.[^.]+$/, "");
-              resolve({
-                id: crypto.randomUUID(),
-                label: name || "?",
-                image: reader.result as string,
-              });
-            };
-            reader.readAsDataURL(file);
-          }),
-      ),
-    ).then((newItems) => {
-      setItems((prev) => [...prev, ...newItems]);
-      toast.success(`${newItems.length}件のイラストを追加しました`);
-    });
-
-    if (fileRef.current) fileRef.current.value = "";
   };
 
   const resetDrawn = () => {
@@ -220,23 +155,29 @@ const Index = () => {
   return (
     <div className="min-h-screen w-full px-4 py-8 md:py-12">
       {/* Header */}
-      <header className="mx-auto max-w-6xl flex items-center justify-between mb-8">
+      <header className="mx-auto max-w-3xl flex items-center justify-between mb-8 gap-2 flex-wrap">
         <h1 className="text-3xl md:text-4xl font-black tracking-tight text-gradient-festive">
           ✨ ACT抽選会
         </h1>
-        <Link to="/history">
-          <Button variant="outline" size="lg" className="gap-2">
-            <History className="h-4 w-4" />
-            履歴
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to="/items">
+            <Button variant="outline" size="lg" className="gap-2">
+              <ListPlus className="h-4 w-4" />
+              項目管理
+            </Button>
+          </Link>
+          <Link to="/history">
+            <Button variant="outline" size="lg" className="gap-2">
+              <History className="h-4 w-4" />
+              履歴
+            </Button>
+          </Link>
+        </div>
       </header>
 
-      <main className="mx-auto max-w-6xl grid gap-8 lg:grid-cols-[1fr_360px]">
-        {/* Flash display */}
+      <main className="mx-auto max-w-3xl">
         <section className="flex flex-col items-center justify-start gap-8">
           <div className="relative w-full max-w-[560px] aspect-square rounded-[2.5rem] border-8 border-primary/80 shadow-glow bg-card/60 backdrop-blur overflow-hidden flex items-center justify-center">
-            {/* Background glow pulse while running */}
             {running && (
               <div className="absolute inset-0 bg-festive opacity-20 animate-pulse-glow pointer-events-none" />
             )}
@@ -262,8 +203,16 @@ const Index = () => {
               <div className="text-center px-8">
                 <Sparkles className="h-16 w-16 mx-auto text-primary mb-4 animate-pulse-glow" />
                 <p className="text-xl md:text-2xl font-bold text-muted-foreground">
-                  STARTを押して抽選
+                  {items.length === 0 ? "項目管理から項目を追加してください" : "STARTを押して抽選"}
                 </p>
+                {items.length === 0 && (
+                  <Link to="/items">
+                    <Button variant="outline" size="lg" className="mt-4 gap-2">
+                      <ListPlus className="h-4 w-4" />
+                      項目管理へ
+                    </Button>
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -287,86 +236,6 @@ const Index = () => {
             )}
           </div>
         </section>
-
-        {/* Sidebar: items */}
-        <aside className="space-y-4">
-          <Card className="p-5 bg-card/80 backdrop-blur border-border shadow-card">
-            <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              項目を追加
-            </h2>
-            <div className="space-y-3">
-              <Input
-                placeholder="数字またはラベル (例: 1)"
-                value={newLabel}
-                onChange={(e) => setNewLabel(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              />
-              <div className="flex items-center gap-2">
-                <label className="flex-1">
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={handleImage}
-                  />
-                  <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-dashed border-border bg-muted/30 hover:bg-muted/60 cursor-pointer text-sm transition-colors">
-                    <ImageIcon className="h-4 w-4" />
-                    {newImage ? "画像選択済み" : "イラストを選ぶ（複数可）"}
-                  </div>
-                </label>
-                {newImage && (
-                  <button
-                    onClick={() => {
-                      setNewImage(undefined);
-                      if (fileRef.current) fileRef.current.value = "";
-                    }}
-                    className="p-2 rounded-md bg-muted hover:bg-destructive/20 transition-colors"
-                    aria-label="画像削除"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              {newImage && (
-                <img src={newImage} alt="プレビュー" className="w-16 h-16 rounded-md object-cover border border-border" />
-              )}
-              <Button onClick={handleAdd} className="w-full bg-gold text-primary-foreground hover:opacity-90 font-bold">
-                <Plus className="h-4 w-4 mr-1" /> 追加
-              </Button>
-            </div>
-          </Card>
-
-          <Card className="p-5 bg-card/80 backdrop-blur border-border shadow-card">
-            <h2 className="font-bold text-lg mb-3">項目一覧 ({items.length})</h2>
-            <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-              {items.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/40 hover:bg-muted/70 transition-colors">
-                  {item.image ? (
-                    <img src={item.image} alt="" className="w-10 h-10 rounded-md object-cover" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-md bg-festive flex items-center justify-center font-black text-primary-foreground text-sm">
-                      {item.label.slice(0, 3)}
-                    </div>
-                  )}
-                  <span className="flex-1 truncate text-sm font-semibold">{item.label}</span>
-                  <button
-                    onClick={() => handleRemove(item.id)}
-                    className="p-1.5 rounded-md hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
-                    aria-label="削除"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-              {items.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-6">項目を追加してください</p>
-              )}
-            </div>
-          </Card>
-        </aside>
       </main>
 
       {/* Fullscreen result overlay */}
