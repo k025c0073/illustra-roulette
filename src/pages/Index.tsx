@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 const Index = () => {
   const [items, setItems] = useState<RouletteItem[]>([]);
+  const [drawnIds, setDrawnIds] = useState<Set<string>>(new Set());
   const [newLabel, setNewLabel] = useState("");
   const [newImage, setNewImage] = useState<string | undefined>();
   const [running, setRunning] = useState(false);
@@ -22,6 +23,7 @@ const Index = () => {
 
   useEffect(() => {
     setItems(loadItems());
+    setDrawnIds(new Set(loadHistory().map((h) => h.itemId)));
   }, []);
 
   useEffect(() => {
