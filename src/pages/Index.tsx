@@ -96,15 +96,51 @@ const Index = () => {
   };
 
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("画像は2MB以下にしてください");
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+
+    // 1枚だけならプレビューに（従来動作）
+    if (files.length === 1) {
+      const file = files[0];
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error("画像は2MB以下にしてください");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => setNewImage(reader.result as string);
+      reader.readAsDataURL(file);
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => setNewImage(reader.result as string);
-    reader.readAsDataURL(file);
+
+    // 複数選択なら一括で項目に追加
+    const oversized = files.filter((f) => f.size > 2 * 1024 * 1024);
+    const valid = files.filter((f) => f.size <= 2 * 1024 * 1024);
+    if (oversized.length) {
+      toast.error(`${oversized.length}件は2MB超のためスキップしました`);
+    }
+
+    Promise.all(
+      valid.map(
+        (file) =>
+          new Promise<RouletteItem>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const name = file.name.replace(/\.[^.]+$/, "");
+              resolve({
+                id: crypto.randomUUID(),
+                label: name || "?",
+                image: reader.result as string,
+              });
+            };
+            reader.readAsDataURL(file);
+          }),
+      ),
+    ).then((newItems) => {
+      setItems((prev) => [...prev, ...newItems]);
+      toast.success(`${newItems.length}件のイラストを追加しました`);
+    });
+
+    if (fileRef.current) fileRef.current.value = "";
   };
 
   const resetDrawn = () => {
