@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,14 @@ const Index = () => {
   const [items, setItems] = useState<RouletteItem[]>([]);
   const [newLabel, setNewLabel] = useState("");
   const [newImage, setNewImage] = useState<string | undefined>();
-  const [spinning, setSpinning] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [flashItem, setFlashItem] = useState<RouletteItem | null>(null);
   const [result, setResult] = useState<RouletteItem | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const wheelRef = useRef<HTMLDivElement>(null);
-  const rotationRef = useRef(0);
   const fileRef = useRef<HTMLInputElement>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const tickIntervalRef = useRef<number | null>(null);
+  const stopTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     setItems(loadItems());
@@ -26,10 +28,55 @@ const Index = () => {
     if (items.length) saveItems(items);
   }, [items]);
 
-  const sliceColors = useMemo(
-    () => ["hsl(45 95% 58%)", "hsl(330 85% 60%)", "hsl(280 60% 60%)", "hsl(190 90% 55%)", "hsl(15 90% 60%)", "hsl(140 70% 50%)"],
-    []
-  );
+  useEffect(() => {
+    return () => {
+      if (tickIntervalRef.current) window.clearInterval(tickIntervalRef.current);
+      if (stopTimeoutRef.current) window.clearTimeout(stopTimeoutRef.current);
+      audioCtxRef.current?.close();
+    };
+  }, []);
+
+  const getAudioCtx = () => {
+    if (!audioCtxRef.current) {
+      const Ctx = window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      audioCtxRef.current = new Ctx();
+    }
+    return audioCtxRef.current;
+  };
+
+  // わくわくする「ティック音」
+  const playTick = (freq: number) => {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.08);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.1);
+  };
+
+  // 当選ファンファーレ
+  const playFanfare = () => {
+    const ctx = getAudioCtx();
+    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+    notes.forEach((f, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = f;
+      const start = ctx.currentTime + i * 0.12;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.25, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.45);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.5);
+    });
+  };
 
   const handleAdd = () => {
     if (!newLabel.trim() && !newImage) {
@@ -58,48 +105,70 @@ const Index = () => {
     reader.readAsDataURL(file);
   };
 
-  const spin = () => {
-    if (spinning || items.length === 0) return;
-    setSpinning(true);
+  const start = () => {
+    if (running || items.length === 0) return;
+    setRunning(true);
     setResult(null);
     setShowResult(false);
 
+    // resume audio (user gesture)
+    void getAudioCtx().resume();
+
     const winnerIndex = Math.floor(Math.random() * items.length);
-    const sliceAngle = 360 / items.length;
-    // pointer at top (0deg). winning slice center should land at top.
-    const targetAngle = 360 - (winnerIndex * sliceAngle + sliceAngle / 2);
-    const spins = 6; // full rotations
-    const finalRotation = rotationRef.current + spins * 360 + (targetAngle - (rotationRef.current % 360));
-    rotationRef.current = finalRotation;
+    const totalDuration = 4000; // ms
+    const startInterval = 60; // 速い
+    const endInterval = 320; // ゆっくり
+    const startTime = performance.now();
 
-    if (wheelRef.current) {
-      wheelRef.current.style.transition = "transform 4.5s cubic-bezier(0.17, 0.67, 0.21, 1)";
-      wheelRef.current.style.transform = `rotate(${finalRotation}deg)`;
-    }
+    let currentIndex = Math.floor(Math.random() * items.length);
+    setFlashItem(items[currentIndex]);
 
-    setTimeout(() => {
-      const winner = items[winnerIndex];
-      setResult(winner);
-      setShowResult(true);
-      setSpinning(false);
-      addHistory({
-        id: crypto.randomUUID(),
-        itemId: winner.id,
-        label: winner.label,
-        image: winner.image,
-        drawnAt: Date.now(),
-      });
-    }, 4600);
+    const tickFreqs = [880, 988, 1175, 1319]; // ワクワク音階
+    let tickCount = 0;
+
+    const scheduleNext = () => {
+      const elapsed = performance.now() - startTime;
+      const progress = Math.min(elapsed / totalDuration, 1);
+      // ease-out: だんだん遅く
+      const eased = 1 - Math.pow(1 - progress, 2);
+      const interval = startInterval + (endInterval - startInterval) * eased;
+
+      tickIntervalRef.current = window.setTimeout(() => {
+        currentIndex = (currentIndex + 1) % items.length;
+        setFlashItem(items[currentIndex]);
+        playTick(tickFreqs[tickCount % tickFreqs.length] + Math.floor(eased * 200));
+        tickCount++;
+
+        if (elapsed < totalDuration) {
+          scheduleNext();
+        } else {
+          // 最終的に当選番号にスナップ
+          setFlashItem(items[winnerIndex]);
+          const winner = items[winnerIndex];
+          setResult(winner);
+          setRunning(false);
+          playFanfare();
+          window.setTimeout(() => setShowResult(true), 250);
+          addHistory({
+            id: crypto.randomUUID(),
+            itemId: winner.id,
+            label: winner.label,
+            image: winner.image,
+            drawnAt: Date.now(),
+          });
+        }
+      }, interval) as unknown as number;
+    };
+
+    scheduleNext();
   };
-
-  const sliceAngle = items.length > 0 ? 360 / items.length : 0;
 
   return (
     <div className="min-h-screen w-full px-4 py-8 md:py-12">
       {/* Header */}
       <header className="mx-auto max-w-6xl flex items-center justify-between mb-8">
         <h1 className="text-3xl md:text-4xl font-black tracking-tight text-gradient-festive">
-          ✨ 抽選ルーレット
+          ✨ 抽選フラッシュ
         </h1>
         <Link to="/history">
           <Button variant="outline" size="lg" className="gap-2">
@@ -110,80 +179,51 @@ const Index = () => {
       </header>
 
       <main className="mx-auto max-w-6xl grid gap-8 lg:grid-cols-[1fr_360px]">
-        {/* Roulette */}
+        {/* Flash display */}
         <section className="flex flex-col items-center justify-start gap-8">
-          <div className="relative w-full max-w-[520px] aspect-square">
-            {/* Pointer */}
-            <div className="absolute left-1/2 -translate-x-1/2 -top-2 z-20">
-              <div className="w-0 h-0 border-l-[18px] border-r-[18px] border-t-[32px] border-l-transparent border-r-transparent border-t-primary drop-shadow-[0_4px_8px_hsl(45_95%_58%/0.6)]" />
-            </div>
+          <div className="relative w-full max-w-[560px] aspect-square rounded-[2.5rem] border-8 border-primary/80 shadow-glow bg-card/60 backdrop-blur overflow-hidden flex items-center justify-center">
+            {/* Background glow pulse while running */}
+            {running && (
+              <div className="absolute inset-0 bg-festive opacity-20 animate-pulse-glow pointer-events-none" />
+            )}
 
-            {/* Wheel */}
-            <div
-              ref={wheelRef}
-              className="absolute inset-0 rounded-full overflow-hidden shadow-glow border-8 border-primary/80"
-              style={{ transform: `rotate(${rotationRef.current}deg)` }}
-            >
-              <svg viewBox="-100 -100 200 200" className="w-full h-full block">
-                {items.map((item, i) => {
-                  const start = i * sliceAngle - 90;
-                  const end = start + sliceAngle;
-                  const sr = (start * Math.PI) / 180;
-                  const er = (end * Math.PI) / 180;
-                  const x1 = 100 * Math.cos(sr);
-                  const y1 = 100 * Math.sin(sr);
-                  const x2 = 100 * Math.cos(er);
-                  const y2 = 100 * Math.sin(er);
-                  const large = sliceAngle > 180 ? 1 : 0;
-                  const path = `M0,0 L${x1},${y1} A100,100 0 ${large} 1 ${x2},${y2} Z`;
-                  const mid = (start + end) / 2;
-                  const mr = (mid * Math.PI) / 180;
-                  const tx = 62 * Math.cos(mr);
-                  const ty = 62 * Math.sin(mr);
-                  return (
-                    <g key={item.id}>
-                      <path d={path} fill={sliceColors[i % sliceColors.length]} stroke="hsl(240 30% 8%)" strokeWidth="0.6" />
-                      <g transform={`translate(${tx} ${ty}) rotate(${mid + 90})`}>
-                        {item.image ? (
-                          <image
-                            href={item.image}
-                            x="-14"
-                            y="-14"
-                            width="28"
-                            height="28"
-                            preserveAspectRatio="xMidYMid slice"
-                            clipPath="circle(14)"
-                          />
-                        ) : (
-                          <text
-                            textAnchor="middle"
-                            dominantBaseline="central"
-                            fontSize={items.length > 16 ? 8 : items.length > 10 ? 11 : 14}
-                            fontWeight="900"
-                            fill="hsl(240 30% 8%)"
-                          >
-                            {item.label.slice(0, 6)}
-                          </text>
-                        )}
-                      </g>
-                    </g>
-                  );
-                })}
-              </svg>
-            </div>
-
-            {/* Center button */}
-            <button
-              onClick={spin}
-              disabled={spinning || items.length === 0}
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-24 h-24 md:w-28 md:h-28 rounded-full bg-gold text-primary-foreground font-black text-lg shadow-glow border-4 border-background transition-bounce hover:scale-110 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed animate-pulse-glow"
-            >
-              {spinning ? "..." : "START"}
-            </button>
+            {flashItem ? (
+              <div key={flashItem.id + (running ? Math.random() : "final")} className="animate-pop-in flex flex-col items-center justify-center gap-4 px-6 w-full">
+                {flashItem.image ? (
+                  <img
+                    src={flashItem.image}
+                    alt={flashItem.label}
+                    className="max-w-[80%] max-h-[60%] object-contain rounded-2xl"
+                  />
+                ) : (
+                  <div className="text-[28vw] md:text-[18vw] leading-none font-black text-gradient-festive drop-shadow-[0_0_30px_hsl(45_95%_58%/0.6)]">
+                    {flashItem.label}
+                  </div>
+                )}
+                {flashItem.image && flashItem.label && (
+                  <div className="text-2xl md:text-4xl font-black text-gradient-festive">{flashItem.label}</div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center px-8">
+                <Sparkles className="h-16 w-16 mx-auto text-primary mb-4 animate-pulse-glow" />
+                <p className="text-xl md:text-2xl font-bold text-muted-foreground">
+                  STARTを押して抽選
+                </p>
+              </div>
+            )}
           </div>
 
+          <button
+            onClick={start}
+            disabled={running || items.length === 0}
+            className="px-12 py-5 rounded-full bg-gold text-primary-foreground font-black text-2xl shadow-glow border-4 border-background transition-bounce hover:scale-110 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed animate-pulse-glow"
+          >
+            {running ? "抽選中..." : "START"}
+          </button>
+
           <p className="text-muted-foreground text-sm">
-            {items.length}件の中から抽選 · 中央のボタンを押してスタート
+            {items.length}件の中から抽選
           </p>
         </section>
 
