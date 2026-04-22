@@ -107,8 +107,24 @@ const Index = () => {
     reader.readAsDataURL(file);
   };
 
+  const resetDrawn = () => {
+    clearHistory();
+    setDrawnIds(new Set());
+    toast.success("抽選履歴をリセットしました");
+  };
+
   const start = () => {
     if (running || items.length === 0) return;
+
+    // 未当選プールを抽出
+    const available = items.filter((i) => !drawnIds.has(i.id));
+    if (available.length === 0) {
+      toast.error("全ての項目が当選済みです。リセットしてください", {
+        action: { label: "リセット", onClick: resetDrawn },
+      });
+      return;
+    }
+
     setRunning(true);
     setResult(null);
     setShowResult(false);
@@ -116,7 +132,7 @@ const Index = () => {
     // resume audio (user gesture)
     void getAudioCtx().resume();
 
-    const winnerIndex = Math.floor(Math.random() * items.length);
+    const winner = available[Math.floor(Math.random() * available.length)];
     const totalDuration = 4000; // ms
     const startInterval = 60; // 速い
     const endInterval = 320; // ゆっくり
@@ -144,12 +160,12 @@ const Index = () => {
         if (elapsed < totalDuration) {
           scheduleNext();
         } else {
-          // 最終的に当選番号にスナップ
-          setFlashItem(items[winnerIndex]);
-          const winner = items[winnerIndex];
+          // 最終的に当選項目にスナップ
+          setFlashItem(winner);
           setResult(winner);
           setRunning(false);
           playFanfare();
+          setDrawnIds((prev) => new Set(prev).add(winner.id));
           window.setTimeout(() => setShowResult(true), 250);
           addHistory({
             id: crypto.randomUUID(),
