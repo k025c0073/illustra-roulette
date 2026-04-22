@@ -222,7 +222,7 @@ const Index = () => {
       {/* Header */}
       <header className="mx-auto max-w-6xl flex items-center justify-between mb-8">
         <h1 className="text-3xl md:text-4xl font-black tracking-tight text-gradient-festive">
-          ✨ 抽選フラッシュ
+          ✨ ACT抽選会
         </h1>
         <Link to="/history">
           <Button variant="outline" size="lg" className="gap-2">
