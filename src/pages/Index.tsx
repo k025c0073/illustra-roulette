@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Plus, Trash2, History, Image as ImageIcon, Sparkles, X } from "lucide-react";
-import { addHistory, loadItems, saveItems, type RouletteItem } from "@/lib/roulette-storage";
+import { addHistory, clearHistory, loadHistory, loadItems, saveItems, type RouletteItem } from "@/lib/roulette-storage";
 import { toast } from "sonner";
 
 const Index = () => {
   const [items, setItems] = useState<RouletteItem[]>([]);
+  const [drawnIds, setDrawnIds] = useState<Set<string>>(new Set());
   const [newLabel, setNewLabel] = useState("");
   const [newImage, setNewImage] = useState<string | undefined>();
   const [running, setRunning] = useState(false);
@@ -22,6 +23,7 @@ const Index = () => {
 
   useEffect(() => {
     setItems(loadItems());
+    setDrawnIds(new Set(loadHistory().map((h) => h.itemId)));
   }, []);
 
   useEffect(() => {
@@ -105,8 +107,24 @@ const Index = () => {
     reader.readAsDataURL(file);
   };
 
+  const resetDrawn = () => {
+    clearHistory();
+    setDrawnIds(new Set());
+    toast.success("抽選履歴をリセットしました");
+  };
+
   const start = () => {
     if (running || items.length === 0) return;
+
+    // 未当選プールを抽出
+    const available = items.filter((i) => !drawnIds.has(i.id));
+    if (available.length === 0) {
+      toast.error("全ての項目が当選済みです。リセットしてください", {
+        action: { label: "リセット", onClick: resetDrawn },
+      });
+      return;
+    }
+
     setRunning(true);
     setResult(null);
     setShowResult(false);
@@ -114,7 +132,7 @@ const Index = () => {
     // resume audio (user gesture)
     void getAudioCtx().resume();
 
-    const winnerIndex = Math.floor(Math.random() * items.length);
+    const winner = available[Math.floor(Math.random() * available.length)];
     const totalDuration = 4000; // ms
     const startInterval = 60; // 速い
     const endInterval = 320; // ゆっくり
@@ -142,12 +160,12 @@ const Index = () => {
         if (elapsed < totalDuration) {
           scheduleNext();
         } else {
-          // 最終的に当選番号にスナップ
-          setFlashItem(items[winnerIndex]);
-          const winner = items[winnerIndex];
+          // 最終的に当選項目にスナップ
+          setFlashItem(winner);
           setResult(winner);
           setRunning(false);
           playFanfare();
+          setDrawnIds((prev) => new Set(prev).add(winner.id));
           window.setTimeout(() => setShowResult(true), 250);
           addHistory({
             id: crypto.randomUUID(),
@@ -222,9 +240,16 @@ const Index = () => {
             {running ? "抽選中..." : "START"}
           </button>
 
-          <p className="text-muted-foreground text-sm">
-            {items.length}件の中から抽選
-          </p>
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-muted-foreground text-sm">
+              残り {items.filter((i) => !drawnIds.has(i.id)).length} / {items.length} 件
+            </p>
+            {drawnIds.size > 0 && (
+              <Button variant="ghost" size="sm" onClick={resetDrawn} className="text-xs">
+                抽選状態をリセット
+              </Button>
+            )}
+          </div>
         </section>
 
         {/* Sidebar: items */}
