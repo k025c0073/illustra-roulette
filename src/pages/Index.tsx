@@ -177,11 +177,9 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl grid gap-8 lg:grid-cols-[1fr_360px]">
-        {/* Flash display */}
+      <main className="mx-auto max-w-3xl">
         <section className="flex flex-col items-center justify-start gap-8">
           <div className="relative w-full max-w-[560px] aspect-square rounded-[2.5rem] border-8 border-primary/80 shadow-glow bg-card/60 backdrop-blur overflow-hidden flex items-center justify-center">
-            {/* Background glow pulse while running */}
             {running && (
               <div className="absolute inset-0 bg-festive opacity-20 animate-pulse-glow pointer-events-none" />
             )}
@@ -207,8 +205,16 @@ const Index = () => {
               <div className="text-center px-8">
                 <Sparkles className="h-16 w-16 mx-auto text-primary mb-4 animate-pulse-glow" />
                 <p className="text-xl md:text-2xl font-bold text-muted-foreground">
-                  STARTを押して抽選
+                  {items.length === 0 ? "項目管理から項目を追加してください" : "STARTを押して抽選"}
                 </p>
+                {items.length === 0 && (
+                  <Link to="/items">
+                    <Button variant="outline" size="lg" className="mt-4 gap-2">
+                      <ListPlus className="h-4 w-4" />
+                      項目管理へ
+                    </Button>
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -232,86 +238,6 @@ const Index = () => {
             )}
           </div>
         </section>
-
-        {/* Sidebar: items */}
-        <aside className="space-y-4">
-          <Card className="p-5 bg-card/80 backdrop-blur border-border shadow-card">
-            <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              項目を追加
-            </h2>
-            <div className="space-y-3">
-              <Input
-                placeholder="数字またはラベル (例: 1)"
-                value={newLabel}
-                onChange={(e) => setNewLabel(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              />
-              <div className="flex items-center gap-2">
-                <label className="flex-1">
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={handleImage}
-                  />
-                  <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-dashed border-border bg-muted/30 hover:bg-muted/60 cursor-pointer text-sm transition-colors">
-                    <ImageIcon className="h-4 w-4" />
-                    {newImage ? "画像選択済み" : "イラストを選ぶ（複数可）"}
-                  </div>
-                </label>
-                {newImage && (
-                  <button
-                    onClick={() => {
-                      setNewImage(undefined);
-                      if (fileRef.current) fileRef.current.value = "";
-                    }}
-                    className="p-2 rounded-md bg-muted hover:bg-destructive/20 transition-colors"
-                    aria-label="画像削除"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              {newImage && (
-                <img src={newImage} alt="プレビュー" className="w-16 h-16 rounded-md object-cover border border-border" />
-              )}
-              <Button onClick={handleAdd} className="w-full bg-gold text-primary-foreground hover:opacity-90 font-bold">
-                <Plus className="h-4 w-4 mr-1" /> 追加
-              </Button>
-            </div>
-          </Card>
-
-          <Card className="p-5 bg-card/80 backdrop-blur border-border shadow-card">
-            <h2 className="font-bold text-lg mb-3">項目一覧 ({items.length})</h2>
-            <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-              {items.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/40 hover:bg-muted/70 transition-colors">
-                  {item.image ? (
-                    <img src={item.image} alt="" className="w-10 h-10 rounded-md object-cover" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-md bg-festive flex items-center justify-center font-black text-primary-foreground text-sm">
-                      {item.label.slice(0, 3)}
-                    </div>
-                  )}
-                  <span className="flex-1 truncate text-sm font-semibold">{item.label}</span>
-                  <button
-                    onClick={() => handleRemove(item.id)}
-                    className="p-1.5 rounded-md hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
-                    aria-label="削除"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-              {items.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-6">項目を追加してください</p>
-              )}
-            </div>
-          </Card>
-        </aside>
       </main>
 
       {/* Fullscreen result overlay */}
