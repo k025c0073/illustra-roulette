@@ -157,16 +157,24 @@ const Index = () => {
   return (
     <div className="min-h-screen w-full px-4 py-8 md:py-12">
       {/* Header */}
-      <header className="mx-auto max-w-6xl flex items-center justify-between mb-8">
+      <header className="mx-auto max-w-3xl flex items-center justify-between mb-8 gap-2 flex-wrap">
         <h1 className="text-3xl md:text-4xl font-black tracking-tight text-gradient-festive">
           ✨ ACT抽選会
         </h1>
-        <Link to="/history">
-          <Button variant="outline" size="lg" className="gap-2">
-            <History className="h-4 w-4" />
-            履歴
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to="/items">
+            <Button variant="outline" size="lg" className="gap-2">
+              <ListPlus className="h-4 w-4" />
+              項目管理
+            </Button>
+          </Link>
+          <Link to="/history">
+            <Button variant="outline" size="lg" className="gap-2">
+              <History className="h-4 w-4" />
+              履歴
+            </Button>
+          </Link>
+        </div>
       </header>
 
       <main className="mx-auto max-w-6xl grid gap-8 lg:grid-cols-[1fr_360px]">
