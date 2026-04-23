@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { History, Sparkles, ListPlus } from "lucide-react";
+import { History, Sparkles, ListPlus, Maximize, Minimize } from "lucide-react";
 import { addHistory, clearHistory, loadHistory, loadItems, type RouletteItem } from "@/lib/roulette-storage";
 import { toast } from "sonner";
 
