@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { History, Sparkles, ListPlus } from "lucide-react";
+import { History, Sparkles, ListPlus, Maximize, Minimize } from "lucide-react";
 import { addHistory, clearHistory, loadHistory, loadItems, type RouletteItem } from "@/lib/roulette-storage";
 import { toast } from "sonner";
 
@@ -13,9 +13,29 @@ const Index = () => {
   const [flashItem, setFlashItem] = useState<RouletteItem | null>(null);
   const [result, setResult] = useState<RouletteItem | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const tickIntervalRef = useRef<number | null>(null);
   const stopTimeoutRef = useRef<number | null>(null);
+
+  // 全画面状態を同期
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (e) {
+      toast.error("全画面表示に切り替えられませんでした");
+    }
+  };
 
   // 他ページで項目が更新された場合に同期
   useEffect(() => {
@@ -160,6 +180,10 @@ const Index = () => {
           ✨ ACT抽選会
         </h1>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="lg" className="gap-2" onClick={toggleFullscreen}>
+            {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+            {isFullscreen ? "通常表示" : "全画面"}
+          </Button>
           <Link to="/items">
             <Button variant="outline" size="lg" className="gap-2">
               <ListPlus className="h-4 w-4" />
