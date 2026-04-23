@@ -10,7 +10,10 @@ const Index = () => {
   const [items, setItems] = useState<RouletteItem[]>(() => loadItems());
   const [drawnIds, setDrawnIds] = useState<Set<string>>(() => new Set(loadHistory().map((h) => h.itemId)));
   const [running, setRunning] = useState(false);
-  const [flashItem, setFlashItem] = useState<RouletteItem | null>(null);
+  const [flashItem, setFlashItem] = useState<RouletteItem | null>(() => {
+    const loaded = loadItems();
+    return loaded.length > 0 ? loaded[Math.floor(Math.random() * loaded.length)] : null;
+  });
   const [result, setResult] = useState<RouletteItem | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
