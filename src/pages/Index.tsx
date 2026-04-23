@@ -138,6 +138,13 @@ const Index = () => {
     const tickFreqs = [880, 988, 1175, 1319]; // ワクワク音階
     let tickCount = 0;
 
+    const pickRandomIndex = (exclude: number) => {
+      if (items.length <= 1) return 0;
+      let next = Math.floor(Math.random() * items.length);
+      if (next === exclude) next = (next + 1) % items.length;
+      return next;
+    };
+
     const scheduleNext = () => {
       const elapsed = performance.now() - startTime;
       const progress = Math.min(elapsed / totalDuration, 1);
@@ -146,7 +153,7 @@ const Index = () => {
       const interval = startInterval + (endInterval - startInterval) * eased;
 
       tickIntervalRef.current = window.setTimeout(() => {
-        currentIndex = (currentIndex + 1) % items.length;
+        currentIndex = pickRandomIndex(currentIndex);
         setFlashItem(items[currentIndex]);
         playTick(tickFreqs[tickCount % tickFreqs.length] + Math.floor(eased * 200));
         tickCount++;
