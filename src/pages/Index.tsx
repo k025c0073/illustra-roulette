@@ -180,6 +180,10 @@ const Index = () => {
           ✨ ACT抽選会
         </h1>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="lg" className="gap-2" onClick={toggleFullscreen}>
+            {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+            {isFullscreen ? "通常表示" : "全画面"}
+          </Button>
           <Link to="/items">
             <Button variant="outline" size="lg" className="gap-2">
               <ListPlus className="h-4 w-4" />
