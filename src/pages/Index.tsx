@@ -13,9 +13,29 @@ const Index = () => {
   const [flashItem, setFlashItem] = useState<RouletteItem | null>(null);
   const [result, setResult] = useState<RouletteItem | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const tickIntervalRef = useRef<number | null>(null);
   const stopTimeoutRef = useRef<number | null>(null);
+
+  // 全画面状態を同期
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (e) {
+      toast.error("全画面表示に切り替えられませんでした");
+    }
+  };
 
   // 他ページで項目が更新された場合に同期
   useEffect(() => {
