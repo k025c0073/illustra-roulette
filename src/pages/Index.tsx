@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { History, Sparkles, ListPlus, Maximize, Minimize } from "lucide-react";
 import { addHistory, clearHistory, loadHistory, loadItems, type RouletteItem } from "@/lib/roulette-storage";
 import { toast } from "sonner";
+import drumRollSound from "@/assets/drum-roll.mp3";
 
 const Index = () => {
   const [items, setItems] = useState<RouletteItem[]>(() => loadItems());
