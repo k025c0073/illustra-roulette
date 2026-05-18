@@ -91,20 +91,28 @@ const Index = () => {
     setResult(null);
     setShowResult(false);
 
-    // resume audio (user gesture)
-    void getAudioCtx().resume();
+    // 効果音を再生
+    const audio = audioRef.current;
+    if (audio) {
+      try {
+        audio.currentTime = 0;
+        void audio.play();
+      } catch {
+        // 再生失敗は無視
+      }
+    }
 
     const winner = available[Math.floor(Math.random() * available.length)];
-    const totalDuration = 4000; // ms
+    const audioDurationMs = audio && !isNaN(audio.duration) && audio.duration > 0
+      ? audio.duration * 1000
+      : 8000;
+    const totalDuration = audioDurationMs;
     const startInterval = 60; // 速い
     const endInterval = 320; // ゆっくり
     const startTime = performance.now();
 
     let currentIndex = Math.floor(Math.random() * items.length);
     setFlashItem(items[currentIndex]);
-
-    const tickFreqs = [880, 988, 1175, 1319]; // ワクワク音階
-    let tickCount = 0;
 
     const pickRandomIndex = (exclude: number) => {
       if (items.length <= 1) return 0;
@@ -123,8 +131,6 @@ const Index = () => {
       tickIntervalRef.current = window.setTimeout(() => {
         currentIndex = pickRandomIndex(currentIndex);
         setFlashItem(items[currentIndex]);
-        playTick(tickFreqs[tickCount % tickFreqs.length] + Math.floor(eased * 200));
-        tickCount++;
 
         if (elapsed < totalDuration) {
           scheduleNext();
@@ -133,7 +139,6 @@ const Index = () => {
           setFlashItem(winner);
           setResult(winner);
           setRunning(false);
-          playFanfare();
           setDrawnIds((prev) => new Set(prev).add(winner.id));
           window.setTimeout(() => setShowResult(true), 250);
           addHistory({
