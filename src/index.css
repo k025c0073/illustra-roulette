@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* スクロールバー非表示 */
+html, body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html::-webkit-scrollbar, body::-webkit-scrollbar {
+  display: none;
+}
+
 @layer base {
   :root {
     --background: 240 30% 6%;
