@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { History, Sparkles, ListPlus, Maximize, Minimize } from "lucide-react";
 import { addHistory, clearHistory, loadHistory, loadItems, type RouletteItem } from "@/lib/roulette-storage";
 import { toast } from "sonner";
+import drumRollSound from "@/assets/drum-roll.mp3";
 
 const Index = () => {
   const [items, setItems] = useState<RouletteItem[]>(() => loadItems());
@@ -17,9 +18,16 @@ const Index = () => {
   const [result, setResult] = useState<RouletteItem | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const audioCtxRef = useRef<AudioContext | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const tickIntervalRef = useRef<number | null>(null);
   const stopTimeoutRef = useRef<number | null>(null);
+
+  // 効果音を初期化
+  useEffect(() => {
+    const a = new Audio(drumRollSound);
+    a.preload = "auto";
+    audioRef.current = a;
+  }, []);
 
   // 全画面状態を同期
   useEffect(() => {
@@ -53,53 +61,13 @@ const Index = () => {
 
   useEffect(() => {
     return () => {
-      if (tickIntervalRef.current) window.clearInterval(tickIntervalRef.current);
+      if (tickIntervalRef.current) window.clearTimeout(tickIntervalRef.current);
       if (stopTimeoutRef.current) window.clearTimeout(stopTimeoutRef.current);
-      audioCtxRef.current?.close();
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
     };
   }, []);
-
-  const getAudioCtx = () => {
-    if (!audioCtxRef.current) {
-      const Ctx = window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      audioCtxRef.current = new Ctx();
-    }
-    return audioCtxRef.current;
-  };
-
-  // わくわくする「ティック音」
-  const playTick = (freq: number) => {
-    const ctx = getAudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "square";
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.005);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.08);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.1);
-  };
-
-  // 当選ファンファーレ
-  const playFanfare = () => {
-    const ctx = getAudioCtx();
-    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
-    notes.forEach((f, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "triangle";
-      osc.frequency.value = f;
-      const start = ctx.currentTime + i * 0.12;
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.25, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.45);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(start);
-      osc.stop(start + 0.5);
-    });
-  };
 
   const resetDrawn = () => {
     clearHistory();
@@ -123,20 +91,28 @@ const Index = () => {
     setResult(null);
     setShowResult(false);
 
-    // resume audio (user gesture)
-    void getAudioCtx().resume();
+    // 効果音を再生
+    const audio = audioRef.current;
+    if (audio) {
+      try {
+        audio.currentTime = 0;
+        void audio.play();
+      } catch {
+        // 再生失敗は無視
+      }
+    }
 
     const winner = available[Math.floor(Math.random() * available.length)];
-    const totalDuration = 4000; // ms
+    const audioDurationMs = audio && !isNaN(audio.duration) && audio.duration > 0
+      ? audio.duration * 1000
+      : 8000;
+    const totalDuration = audioDurationMs;
     const startInterval = 60; // 速い
     const endInterval = 320; // ゆっくり
     const startTime = performance.now();
 
     let currentIndex = Math.floor(Math.random() * items.length);
     setFlashItem(items[currentIndex]);
-
-    const tickFreqs = [880, 988, 1175, 1319]; // ワクワク音階
-    let tickCount = 0;
 
     const pickRandomIndex = (exclude: number) => {
       if (items.length <= 1) return 0;
@@ -155,8 +131,6 @@ const Index = () => {
       tickIntervalRef.current = window.setTimeout(() => {
         currentIndex = pickRandomIndex(currentIndex);
         setFlashItem(items[currentIndex]);
-        playTick(tickFreqs[tickCount % tickFreqs.length] + Math.floor(eased * 200));
-        tickCount++;
 
         if (elapsed < totalDuration) {
           scheduleNext();
@@ -165,7 +139,6 @@ const Index = () => {
           setFlashItem(winner);
           setResult(winner);
           setRunning(false);
-          playFanfare();
           setDrawnIds((prev) => new Set(prev).add(winner.id));
           window.setTimeout(() => setShowResult(true), 250);
           addHistory({
