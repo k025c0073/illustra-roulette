@@ -91,24 +91,13 @@ const Index = () => {
     setResult(null);
     setShowResult(false);
 
-    // 効果音を再生
     const audio = audioRef.current;
-    if (audio) {
-      try {
-        audio.currentTime = 0;
-        void audio.play();
-      } catch {
-        // 再生失敗は無視
-      }
-    }
-
     const winner = available[Math.floor(Math.random() * available.length)];
-    const audioDurationMs = audio && !isNaN(audio.duration) && audio.duration > 0
-      ? audio.duration * 1000
-      : 8000;
-    const totalDuration = audioDurationMs;
-    const startInterval = 60; // 速い
-    const endInterval = 320; // ゆっくり
+
+    // サスペンス（無音で数字・イラストを高速サイクル）
+    const suspenseDuration = 2000;
+    const startInterval = 60;
+    const endInterval = 200;
     const startTime = performance.now();
 
     let currentIndex = Math.floor(Math.random() * items.length);
@@ -121,34 +110,44 @@ const Index = () => {
       return next;
     };
 
+    const reveal = () => {
+      // シャーン！と同時に当選を表示
+      if (audio) {
+        try {
+          audio.currentTime = 0;
+          void audio.play();
+        } catch {
+          // 無視
+        }
+      }
+      setFlashItem(winner);
+      setResult(winner);
+      setRunning(false);
+      setDrawnIds((prev) => new Set(prev).add(winner.id));
+      window.setTimeout(() => setShowResult(true), 250);
+      addHistory({
+        id: crypto.randomUUID(),
+        itemId: winner.id,
+        label: winner.label,
+        image: winner.image,
+        drawnAt: Date.now(),
+      });
+    };
+
     const scheduleNext = () => {
       const elapsed = performance.now() - startTime;
-      const progress = Math.min(elapsed / totalDuration, 1);
-      // ease-out: だんだん遅く
+      if (elapsed >= suspenseDuration) {
+        reveal();
+        return;
+      }
+      const progress = Math.min(elapsed / suspenseDuration, 1);
       const eased = 1 - Math.pow(1 - progress, 2);
       const interval = startInterval + (endInterval - startInterval) * eased;
 
       tickIntervalRef.current = window.setTimeout(() => {
         currentIndex = pickRandomIndex(currentIndex);
         setFlashItem(items[currentIndex]);
-
-        if (elapsed < totalDuration) {
-          scheduleNext();
-        } else {
-          // 最終的に当選項目にスナップ
-          setFlashItem(winner);
-          setResult(winner);
-          setRunning(false);
-          setDrawnIds((prev) => new Set(prev).add(winner.id));
-          window.setTimeout(() => setShowResult(true), 250);
-          addHistory({
-            id: crypto.randomUUID(),
-            itemId: winner.id,
-            label: winner.label,
-            image: winner.image,
-            drawnAt: Date.now(),
-          });
-        }
+        scheduleNext();
       }, interval) as unknown as number;
     };
 
